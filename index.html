@@ -1,0 +1,255 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>gm-panodata</title>
+    <meta name="description" content="finding latlng easily from panorama streetview">
+    <meta name="author" content="sim boon long">
+    <meta name="keywords" content="google, maps, panorama, streetview">
+    <meta name="viewport" content="width=device-width">
+    <style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    html,
+    body {
+        font-family: 'helvetica', arial, sans-serif;
+        height: 100%;
+    }
+    .wrap {
+        padding: 15px 30px;
+        height: 100%;
+    }
+        .gm-panodata-box {
+            margin: 0 0 15px 0;
+        }
+            .gm-panodata-title {
+                margin: 0 0 15px 0;
+                font-size: 21px;
+            }
+            .gm-panodata {
+                margin-bottom: 2px;
+                color: #ccc;
+                font-size: 11px;
+            }
+            .gm-panodata span {
+                color: #000;
+                font-size: 13px;
+            }
+            .gm-panodata-instructions {
+                font-size: 11px;
+                text-align: center;
+                text-transform: uppercase;
+                margin-bottom: 2px;
+            }
+        .main {
+            height: 100%;
+        }
+            .row-googlemap {
+                font-size: 0;
+                height: 75%;
+            }
+                .col-googlemap {
+                    height: 100%;
+                    font-size: 13;
+                    display: inline-block;
+                    width: 50%;
+                }
+    #lat.success,
+    #lng.success {
+        color: green;
+    }
+    #lat.error,
+    #lng.error {
+        color: red;
+    }
+    #pac-input {
+        width: 260px;
+    }
+    #map-canvas {
+        width: 100%;
+        height: 100%;
+    }
+    #panorama {
+        width: 100%;
+        height: 100%;
+    }
+    #map-canvas.error {
+        border:red 2px solid;
+    }
+    #map-canvas.success {
+        border:green 2px solid;
+    }
+
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&signed_in=false&libraries=places"></script>
+</head>
+<body>
+
+    <div class="wrap">
+        <main class="main">
+            <div class="gm-panodata-box">
+                <h1 class="gm-panodata-title">gm-panodata</h1>
+                <div class="gm-panodata">lat: <span id="lat"></span></div>
+                <div class="gm-panodata">lng: <span id="lng"></span></div>
+                <div class="gm-panodata">heading: <span id="heading"></span></div>
+                <div class="gm-panodata">pitch: <span id="pitch"></span></div>
+                <input id="pac-input" class="controls" type="text" placeholder="Search Box">
+            </div>
+            <div class="row-googlemap">
+                <div class="col-googlemap">
+                    <h2 class="gm-panodata-instructions">1. drop the pegman to where you like</h2>
+                    <div id="map-canvas"></div>
+                </div>
+                <div class="col-googlemap">
+                    <h2 class="gm-panodata-instructions">2. drag panorama to get correct latlng data</h2>
+                    <div id="panorama"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="//code.jquery.com/jquery-1.11.3.min.js"></script>
+    <script>
+    (function( window, document, undefined ){
+        'use strict';
+
+            // DOM
+        var latLog = $('#lat'),
+            lngLog = $('#lng'),
+            headingLog = $('#heading'),
+            pitchLog = $('#pitch'),
+
+            map, // google map
+            panorama, // streetview
+            searchBox, // search box
+            markers = [], // temp markers for searched places
+            startingPosition = new google.maps.LatLng(1.284284, 103.843612);
+
+        // ====================================================================
+        // functions
+        // ====================================================================
+        function updateLatLg() {
+            var pos = panorama.getPosition(),
+                lat = pos.lat(),
+                lng = pos.lng(),
+                heading = panorama.getPov().heading | 0,
+                pitch = panorama.getPov().pitch | 0;
+
+            map.setCenter( new google.maps.LatLng(lat, lng) );
+
+            latLog.html(''+lat+'');
+            lngLog.html(''+lng+'');
+            headingLog.html(''+heading+'');
+            pitchLog.html(''+pitch+'');
+
+        }
+
+        function onPlacesChanged( event ) {
+            var places = searchBox.getPlaces();
+
+            if (places.length == 0) {
+                return;
+            }
+            for (var i = 0, marker; marker = markers[i]; i++) {
+                marker.setMap(null);
+            }
+
+            console.log
+            // For each place, get the icon, place name, and location.
+            markers = [];
+            var bounds = new google.maps.LatLngBounds();
+            for (var i = 0, place; place = places[i]; i++) {
+                var image = {
+                    url: place.icon,
+                    size: new google.maps.Size(71, 71),
+                    origin: new google.maps.Point(0, 0),
+                    anchor: new google.maps.Point(17, 34),
+                    scaledSize: new google.maps.Size(25, 25)
+                };
+
+            // Create a marker for each place.
+            var marker = new google.maps.Marker({
+                map: map,
+                icon: image,
+                title: place.name,
+                position: place.geometry.location
+            });
+
+            markers.push(marker);
+
+            bounds.extend(place.geometry.location);
+            }
+
+            map.fitBounds(bounds);
+
+        }
+
+        function onBoundsChanged( event ) {
+            var bounds = map.getBounds();
+            searchBox.setBounds(bounds);
+        }
+
+        // ====================================================================
+        // initialize map
+        // ====================================================================
+        function initialize() {
+
+            // map
+            map = new google.maps.Map(document.getElementById('map-canvas'), {
+                draggable: true,
+                zoom: 13,
+                center: startingPosition
+            });
+
+            // panorama
+            panorama = new google.maps.StreetViewPanorama(document.getElementById('panorama'), {
+                position: startingPosition,
+                pov: {
+                    heading: 0,
+                    pitch: 0
+                }
+            });
+            map.setStreetView(panorama);
+
+            // searchbox
+            var input = document.getElementById('pac-input');
+            searchBox = new google.maps.places.SearchBox(input);
+
+            // listners
+            google.maps.event.addListener(searchBox, 'places_changed', onPlacesChanged );
+            google.maps.event.addListener(map, 'bounds_changed', onBoundsChanged);
+            google.maps.event.addListener(panorama, 'visible_changed', function() {
+                updateLatLg();
+                $('#map-canvas').removeClass('success');
+                $('#map-canvas').addClass('error');
+
+                $('#lat').removeClass('success');
+                $('#lng').removeClass('success');
+                $('#lat').addClass('error');
+                $('#lng').addClass('error');
+            });
+
+            google.maps.event.addListener(panorama, 'pov_changed', function() {
+                updateLatLg();
+                $('#map-canvas').removeClass('error');
+                $('#map-canvas').addClass('success');
+
+                $('#lat').removeClass('error');
+                $('#lng').removeClass('error');
+                $('#lat').addClass('success');
+                $('#lng').addClass('success');
+            });
+
+        }
+
+        // init google maps
+        google.maps.event.addDomListener(window, 'load', initialize);
+
+    })( this, this.document );
+
+    </script>
+</body>
+</html>
