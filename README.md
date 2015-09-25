@@ -17,6 +17,8 @@ Method 3 (see demo below)
 - ;)
 
 ## Demo
+![gm-panodata demo](gm-panodata.gif)
+
 Demo link at http://htmlpreview.github.io/?https://github.com/simboonlong/gm-panodata/blob/master/index.html
 
 ## Usage
